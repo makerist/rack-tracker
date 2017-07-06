@@ -8,6 +8,10 @@
 
     ga('create', '<%= tracker %>', <%= tracker_options.to_json %>);
   }
+
+<% if options[:optimizer_id].present? %>
+  ga('require', '<%= options[:optimizer_id] %>');
+<% end %>
 <% if options[:enhanced_link_attribution] %>
   ga('require', 'linkid', 'linkid.js');
 <% end %>
