@@ -1,3 +1,30 @@
+# 1.7.0
+
+  * [BUGFIX] dup response string in Rack::Tracker#inject to avoid RuntimeError #114 (thx @zpfled)
+  * [ENHANCEMENT] Allow to use custom pageview url script for GoogleAnalytics tracker. #119 (thx @Haerezis)
+
+# 1.6.0
+
+  * [BUGFIX] set wildcard to non-greedy for GTM body insertion #107
+  * [ENHANCEMENT] Test against Ruby 2.5 #104
+  * [ENHANCEMENT] Google Optimize container ID #103
+  * [ENHANCEMENT] Allow for dynamic Facebook Pixel options #101
+
+# 1.5.0
+
+  * [ENHANCEMENT] facebook pixel now supports non-standard (custom) event names #93
+
+# 1.4.0
+
+  * [ENHANCEMENT] welcome Hotjar! #90
+  * [ENHANCEMENT] experimental turbolinks option for Google Tag manager #88
+  * small refactorings
+  * benchmark setup
+
+# 1.3.1
+
+  * [BUGFIX] google tag manager now supports body/head tags with attributes #86
+
 # 1.3.0
 
   * Added handler multiposition support which fixes #80 and

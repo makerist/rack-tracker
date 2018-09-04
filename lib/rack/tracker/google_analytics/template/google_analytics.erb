@@ -24,6 +24,9 @@
 <% if options[:ecommerce] %>
   ga('require', 'ecommerce', 'ecommerce.js');
 <% end %>
+<% if options[:optimize] %>
+  ga('require', '<%= options[:optimize] %>');
+<% end %>
 <% if options[:anonymize_ip] %>
   ga('set', 'anonymizeIp', true);
 <% end %>
@@ -40,6 +43,6 @@
   ga('ecommerce:send');
 <% end %>
 <% if tracker %>
-  ga('send', 'pageview', window.location.pathname + window.location.search);
+  ga('send', 'pageview', <%= pageview_url_script %>);
 <% end %>
 </script>

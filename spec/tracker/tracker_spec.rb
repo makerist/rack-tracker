@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class DummyHandler < Rack::Tracker::Handler
   def render
     Tilt.new( File.join( File.dirname(__FILE__), '../fixtures/dummy.erb') ).render(self)
@@ -20,6 +21,7 @@ RSpec.describe Rack::Tracker do
       use Rack::Tracker do
         handler DummyHandler, { foo: 'head' }
         handler BodyHandler, { foo: 'body' }
+        handler DummyHandler, { foo: 'I am evil', DO_NOT_RESPECT_DNT_HEADER: true }
       end
 
       run lambda {|env|
@@ -104,5 +106,40 @@ RSpec.describe Rack::Tracker do
 
       expect(last_response.body).to_not include("alert('this is a dummy class');")
     end
+  end
+
+  describe 'do not track' do
+    context 'DNT header set to 1' do
+      it 'will not inject any tracker' do
+        get '/', {}, {'HTTP_DNT' => 1 }
+
+        # the DummyHandler respects the DNT
+        expect(last_response.body).to_not include("console.log('head');")
+      end
+
+      it 'will allow the DO_NOT_RESPECT_DNT_HEADER overwrite' do
+        get '/', {}, {'HTTP_DNT' => 1 }
+
+        # the EvilHandler respects the DNT
+        expect(last_response.body).to include("console.log('I am evil');")
+      end
+    end
+
+    context 'DNT header set to 0' do
+      it 'injects all trackers' do
+        get '/', {}, {'HTTP_DNT' => 0 }
+        expect(last_response.body).to include("console.log('head');")
+        expect(last_response.body).to include("console.log('I am evil');")
+      end
+    end
+
+    context 'DNT header is not set' do
+      it 'injects all trackers' do
+        get '/'
+        expect(last_response.body).to include("console.log('head');")
+        expect(last_response.body).to include("console.log('I am evil');")
+      end
+    end
+
   end
 end
