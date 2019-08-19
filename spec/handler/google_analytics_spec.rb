@@ -53,28 +53,24 @@ RSpec.describe Rack::Tracker::GoogleAnalytics do
   end
 
   describe '#tracker_options' do
-    before do
-      stub_const("#{described_class}::ALLOWED_TRACKER_OPTIONS", [:some_option])
-    end
-
     context 'with an allowed option configured with a static value' do
-      subject { described_class.new(env, { some_option: 'value' }) }
+      subject { described_class.new(env, { user_id: 'value' }) }
 
       it 'returns hash with option set' do
-        expect(subject.tracker_options).to eql ({ someOption: 'value' })
+        expect(subject.tracker_options).to eql ({ userId: 'value' })
       end
     end
 
     context 'with an allowed option configured with a block' do
-      subject { described_class.new(env, { some_option: lambda { |env| return env[:misc] } }) }
+      subject { described_class.new(env, { user_id: lambda { |env| return env[:misc] } }) }
 
       it 'returns hash with option set' do
-        expect(subject.tracker_options).to eql ({ someOption: 'foobar' })
+        expect(subject.tracker_options).to eql ({ userId: 'foobar' })
       end
     end
 
     context 'with an allowed option configured with a block returning nil' do
-      subject { described_class.new(env, { some_option: lambda { |env| return env[:non_existing_key] } }) }
+      subject { described_class.new(env, { user_id: lambda { |env| return env[:non_existing_key] } }) }
 
       it 'returns an empty hash' do
         expect(subject.tracker_options).to eql ({})
@@ -192,7 +188,7 @@ RSpec.describe Rack::Tracker::GoogleAnalytics do
   describe "with custom domain" do
     subject { described_class.new(env, tracker: 'somebody', cookie_domain: "railslabs.com").render }
 
-    it "will show asyncronous tracker with cookieDomain" do
+    it "will show asynchronous tracker with cookieDomain" do
       expect(subject).to match(%r{ga\('create', 'somebody', {\"cookieDomain\":\"railslabs.com\"}\)})
       expect(subject).to match(%r{ga\('send', 'pageview', window\.location\.pathname \+ window\.location\.search\)})
     end
@@ -201,7 +197,7 @@ RSpec.describe Rack::Tracker::GoogleAnalytics do
   describe "with user_id tracking" do
     subject { described_class.new(env, tracker: 'somebody', user_id: lambda { |env| return env[:user_id] } ).render }
 
-    it "will show asyncronous tracker with userId" do
+    it "will show asynchronous tracker with userId" do
       expect(subject).to match(%r{ga\('create', 'somebody', {\"userId\":\"123\"}\)})
       expect(subject).to match(%r{ga\('send', 'pageview', window\.location\.pathname \+ window\.location\.search\)})
     end
@@ -239,6 +235,14 @@ RSpec.describe Rack::Tracker::GoogleAnalytics do
     end
   end
 
+  describe "with optimize" do
+    subject { described_class.new(env, tracker: 'happy', optimize: 'GTM-1234').render }
+
+    it "will require the optimize plugin with container ID" do
+      expect(subject).to match(%r{ga\('require', 'GTM-1234'\)})
+    end
+  end
+
   describe "with anonymizeIp" do
     subject { described_class.new(env, tracker: 'happy', anonymize_ip: true).render }
 
@@ -261,6 +265,24 @@ RSpec.describe Rack::Tracker::GoogleAnalytics do
     it "will add timeouts to push read events" do
       expect(subject).to include %q{setTimeout(function() { ga('send', 'event', '15_seconds', 'read'); },15000)}
       expect(subject).to include %q{setTimeout(function() { ga('send', 'event', '30_seconds', 'read'); },30000)}
+    end
+  end
+
+  describe '#pageview_url_script' do
+    context 'without custom pageview url script' do
+      subject { described_class.new(env, {} ) }
+
+      it 'returns return the custom pageview url script' do
+        expect(subject.pageview_url_script).to eql ("window.location.pathname + window.location.search")
+      end
+    end
+
+    context 'with a custom pageview url script' do
+      subject { described_class.new(env, { pageview_url_script: "{ 'page': location.pathname + location.search + location.hash }"}) }
+
+      it 'returns return the custom pageview url script' do
+        expect(subject.pageview_url_script).to eql ("{ 'page': location.pathname + location.search + location.hash }")
+      end
     end
   end
 end

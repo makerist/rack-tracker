@@ -28,6 +28,33 @@ but to get you started we're shipping support for the following services out of 
 * [GoSquared](#gosquared)
 * [Criteo](#criteo)
 * [Zanox](#zanox)
+* [Hotjar](#hotjar)
+
+## Respecting the Do Not Track (DNT) HTTP header
+
+The Do Not Track (DNT) HTTP header is a HTTP header that requests the server to disable its tracking of the individual user.
+This is an opt-out option supported by most browsers. This option is disabled by default and has to be explicitly enabled to indicate the user's request to opt-out.
+We believe evey application should respect the user's choice to opt-out and respect this HTTP header.
+
+Since version 2.0.0 rack-tracker respects that request header by default. That means NO tracker is injected IF the DNT header is set to "1".
+
+This option can be overwriten using the `DO_NOT_RESPECT_DNT_HEADER => true` option which must be set on any handler that should ignore the DNT header. (but please think twice before doing that)
+
+### Example on how to not respect the DNT header
+
+```ruby
+use Rack::Tracker do
+  # this tracker will be injected EVEN IF the DNT header is set to 1
+  handler :maybe_a_friendly_tracker, { tracker: 'U-XXXXX-Y', DO_NOT_RESPECT_DNT_HEADER: true }
+  # this tracker will NOT be injected if the DNT header is set to 1
+  handler :google_analytics, { tracker: 'U-XXXXX-Y' }
+end
+```
+
+Further reading on the DNT header:
+
+* [Wikipedia Do Not Track](https://en.wikipedia.org/wiki/Do_Not_Track)
+* [EFF: Do Not Track](https://www.eff.org/issues/do-not-track)
 
 
 ## Installation
@@ -95,6 +122,8 @@ request.env['tracker'] = {
 * `:advertising` - Enables [Display Features](https://developers.google.com/analytics/devguides/collection/analyticsjs/display-features).
 * `:ecommerce` - Enables [Ecommerce Tracking](https://developers.google.com/analytics/devguides/collection/analyticsjs/ecommerce).
 * `:enhanced_ecommerce` - Enables [Enhanced Ecommerce Tracking](https://developers.google.com/analytics/devguides/collection/analyticsjs/enhanced-ecommerce)
+* `:optimize` - pass [Google Optimize container ID](https://support.google.com/360suite/optimize/answer/6262084#example-combined-snippet) as value (e.g. `optimize: 'GTM-1234'`).
+* `:pageview_url_script` - a String containing a custom js script evaluating to the url that shoudl be given to the pageview event. Default to `window.location.pathname + window.location.search`.
 
 #### Events
 
@@ -229,11 +258,19 @@ You can also specify a different value from default options:
 
 ### Google Tag Manager
 
-Google Tag manager code snippet doesn't support any option other than the container id
+Google Tag manager code snippet supports the container id
 
 ```ruby
   config.middleware.use(Rack::Tracker) do
     handler :google_tag_manager, { container: 'GTM-XXXXXX' }
+  end
+```
+
+You can also use an experimental feature to track pageviews under turbolinks, which adds a `pageView` event with a `virtualUrl` of the current url.
+
+```ruby
+  config.middleware.use(Rack::Tracker) do
+    handler :google_tag_manager, { container: 'GTM-XXXXXX', turbolinks: true }
   end
 ```
 
@@ -266,6 +303,26 @@ First, add the following to your config:
   end
 ```
 
+#### Dynamic Pixel Configuration
+
+If you need to have different pixel ids e.g. based on the request or serving pages for different accounts, you have the possibility to achieve this by passing a lambda:
+
+```ruby
+  config.middleware.use(Rack::Tracker) do
+    handler :facebook_pixel, { id: lambda { |env| env['PIXEL_ID'] } }
+  end
+```
+
+and set the pixel id within the request `env` variable. Here an example on how it can be done in a rails action:
+
+```ruby
+  class MyController < ApplicationController
+    def show
+      request.env['PIXEL_ID'] = 'DYNAMIC_PIXEL_ID'
+    end
+  end
+```
+
 #### Standard Events
 
 To track Standard Events from the server side just call the `tracker` method in your controller.
@@ -283,6 +340,15 @@ Will result in the following:
 ```javascript
   fbq("track", "Purchase", {"value":"100.0","currency":"USD"});
 ```
+
+You can also use non-standard (custom) event names for audience building when you do not need to track or optimize for conversions.
+
+```
+  tracker do |t|
+    t.facebook_pixel :track_custom, { type: 'FrequentShopper', options: { purchases: 24, category: 'Sport' } }
+  end
+```
+
 
 ### Visual website Optimizer (VWO)
 Just integrate the handler with your matching account_id and you will be ready to go
@@ -477,6 +543,17 @@ def show
 end
 ```
 
+### Hotjar
+
+[Hotjar](https://www.hotjar.com/)
+
+```
+config.middleware.use(Rack::Tracker) do
+  handler :hotjar, { site_id: '1234' }
+end
+```
+
+
 ### Custom Handlers
 
 Tough we give you handlers for a few tracking services right out of the box, you might
@@ -488,13 +565,12 @@ your class needs to implement.
 Start with a plain ruby class that inherits from `Rack::Tracker::Handler`
 
 ```ruby
-class MyHandler <  Rack::Tracker::Handler
+class MyHandler < Rack::Tracker::Handler
   ...
 end
 ```
 
-Second we need a method called `#render` which will take care of rendering a
-template.
+If you want to customize the rendering of your template, you can overwrite the handlers `#render` method:
 
 ```ruby
 def render
@@ -531,7 +607,7 @@ Run your application and make a request, the result of the above template can be
 found right before `</head>`. You can change the position in your handler-code:
 
 ```ruby
-class MyHandler <  Rack::Tracker::Handler
+class MyHandler < Rack::Tracker::Handler
   self.position = :body
 
   ...
